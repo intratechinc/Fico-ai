@@ -1,0 +1,5 @@
+{
+  "name": "AI FICO Score Simulator",
+  "description": "An AI-powered FICO credit score simulator that analyzes user-provided credit data, generates personalized improvement goals using the Gemini API, and provides an interactive simulation of score changes over time.",
+  "requestFramePermissions": []
+}
