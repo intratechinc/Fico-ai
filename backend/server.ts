@@ -6,7 +6,7 @@ import express, { Request, Response } from 'express';
 // Fix: Add imports to define __dirname in an ES module context.
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type } from "@google/genai";
-import { GeminiResponse } from './types';
+import { GeminiResponse } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,7 +15,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT || 8080;
 
-app.use(cors());
+app.use(cors({
+  origin: ['https://ai-fico-simulator.web.app'],
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // `__dirname` is available in CommonJS. In Cloud Run, it will resolve to the directory of the running script, which is `/workspace/backend/dist`.
@@ -48,8 +50,8 @@ You are an expert FICO credit score analyst. Your task is to analyze a user's cr
 3.  Each goal object must contain:
     *   \`goal_id\`: A unique string identifier.
     *   \`title\`: A concise, motivating title. **This title MUST follow the exact format: "Increase Score by X Points"**, where X is the total potential point increase from completing the goal.
-    *   \`category\`: One of 'Debt Reduction', 'Collection Resolution', 'Payment History', 'Credit Building'.
-    *   \`timeframe_months\`: A realistic number of months to achieve the goal.
+    *   \`category\` - One of 'Payment History', 'Amounts Owed', 'Length of Credit History', 'Credit Mix', 'New Credit'.
+    *   \`timeframe_months\` - A realistic number of months to achieve the goal.
     *   \`action_plan\`: An array of step-by-step actions. Each step must have:
         *   \`step\`: A clear, actionable description (e.g., "Pay down credit card balance by $500").
         *   \`impact\`: The estimated FICO point increase for completing that specific step.
@@ -160,7 +162,11 @@ app.post('/api/analyze', async (req: Request, res: Response) => {
             }
         });
 
-        const jsonText = response.text.trim();
+        const jsonText = response.text?.trim();
+        if (!jsonText) {
+            return res.status(500).json({ error: "Received an empty response from the AI service." });
+        }
+        
         const result = JSON.parse(jsonText) as GeminiResponse;
         res.json(result);
 

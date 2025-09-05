@@ -1,0 +1,26 @@
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/fico-ai-backend', './backend']
+
+  # Push the Docker image to GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/fico-ai-backend']
+
+  # Deploy to Cloud Run, using the secret from Secret Manager
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'fico-ai-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/fico-ai-backend'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--update-secrets=API_KEY=gemini-api-key:latest'
+images:
+  - 'gcr.io/$PROJECT_ID/fico-ai-backend'

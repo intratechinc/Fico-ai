@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": ".",
+    "public": "dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -10,12 +10,12 @@
       {
         "source": "/api/**",
         "run": {
-          "serviceId": "fico-simulator-backend",
+          "serviceId": "fico-ai-backend",
           "region": "us-central1"
         }
       },
       {
-        "source": "**",
+        "source": "/!(*.*)",
         "destination": "/index.html"
       }
     ]

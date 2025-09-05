@@ -2,6 +2,7 @@
   "name": "fico-simulator-backend",
   "version": "1.0.0",
   "description": "Backend for AI FICO Simulator",
+  "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",

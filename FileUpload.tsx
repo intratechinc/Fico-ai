@@ -1,135 +1,69 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { DocumentArrowUpIcon } from './components/Icons';
+
+// Icon is now correctly passing the className prop to the SVG element
+const FileIcon: React.FC<{ className?: string }> = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>;
 
 interface FileUploadProps {
-  onFileRead: (fileData: { content: string; mimeType: string }) => void;
+  onFileRead: (data: { content: string; mimeType: string }) => void;
   onClear: () => void;
-  onError: (message: string) => void;
-  disabled: boolean;
+  onError: (error: string | null) => void;
+  disabled?: boolean;
 }
 
-const ACCEPTED_FILE_TYPES = ['text/plain', 'text/csv', 'application/json', 'application/pdf'];
-const ACCEPTED_EXTENSIONS = '.txt, .csv, .json, .pdf';
-
 const FileUpload: React.FC<FileUploadProps> = ({ onFileRead, onClear, onError, disabled }) => {
-  const [fileName, setFileName] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const processFile = useCallback((file: File) => {
-    if (!file) return;
-
-    if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
-      onError(`Invalid file type. Please upload a ${ACCEPTED_EXTENSIONS} file.`);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (result) {
-        onFileRead({ content: result, mimeType: file.type });
-        setFileName(file.name);
-        onError(''); // Clear previous errors
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      const mimeType = file.type || 'text/plain';
+      reader.onload = (e) => onFileRead({ content: e.target?.result as string, mimeType });
+      reader.onerror = () => onError("Failed to read the file.");
+      if (mimeType === 'application/pdf' || mimeType.startsWith('image/')) {
+        reader.readAsDataURL(file);
       } else {
-        onError("Could not read the file. It might be empty or corrupted.");
+        reader.readAsText(file);
       }
-    };
-    reader.onerror = () => {
-      onError("Failed to read the file.");
-    };
-    
-    if (file.type === 'application/pdf') {
-        reader.readAsDataURL(file); // Read PDF as Base64 Data URL
-    } else {
-        reader.readAsText(file); // Read other files as plain text
     }
   }, [onFileRead, onError]);
 
-  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (!disabled) setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault(); // Necessary to allow dropping
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (disabled) return;
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => event.preventDefault();
+  
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+      const mockEvent = { target: { files: event.dataTransfer.files } } as unknown as React.ChangeEvent<HTMLInputElement>;
+      handleFileChange(mockEvent);
     }
   };
 
-  const handleClick = () => {
-    inputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      processFile(e.target.files[0]);
-    }
-  };
-
-  const handleClear = () => {
-    setFileName(null);
-    onClear();
-    if (inputRef.current) {
-        inputRef.current.value = '';
-    }
+  const triggerFileSelect = () => {
+    if (!disabled) fileInputRef.current?.click();
   }
 
   return (
-    <div>
-      {!fileName ? (
-        <div
-          onClick={handleClick}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
-          className={`w-full h-48 p-3 flex flex-col items-center justify-center bg-gray-900 border-2 border-dashed border-gray-600 rounded-lg cursor-pointer transition-colors ${
-            isDragging ? 'border-blue-500 bg-gray-800' : 'hover:border-gray-500'
-          } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-        >
-          <input
-            type="file"
-            ref={inputRef}
-            onChange={handleFileChange}
-            accept={ACCEPTED_EXTENSIONS}
-            className="hidden"
-            disabled={disabled}
-          />
-          <DocumentArrowUpIcon className="h-12 w-12 text-gray-500 mb-2" />
-          <p className="text-gray-400">
-            <span className="font-semibold text-blue-400">Click to upload</span> or drag and drop
+    <div 
+      className={`w-full p-4 border-2 border-dashed border-[#4B5563] rounded-lg text-center transition-colors ${disabled ? 'opacity-50' : 'hover:border-blue-500 cursor-pointer'}`}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onClick={triggerFileSelect}
+    >
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        className="hidden"
+        accept=".pdf,.txt,.csv,.json"
+        disabled={disabled}
+      />
+      <div className="flex flex-col items-center gap-2 text-gray-400">
+          <FileIcon className="h-10 w-10 mb-2" />
+          <p>
+              <span className="font-semibold text-[#60A5FA]">Click to upload</span> or drag and drop
           </p>
-          <p className="text-xs text-gray-500">
-            PDF, TXT, CSV, or JSON files are supported
-          </p>
-        </div>
-      ) : (
-        <div className="w-full h-48 p-3 flex flex-col items-center justify-center bg-gray-900 border border-green-700 rounded-lg">
-            <p className="text-lg font-medium text-green-300">File Ready for Analysis</p>
-            <p className="text-gray-300 mt-2 mb-4">{fileName}</p>
-            <button
-                onClick={handleClear}
-                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg text-sm"
-                disabled={disabled}
-            >
-                Clear File
-            </button>
-        </div>
-      )}
+          <p className="text-xs">PDF, TXT, CSV, or JSON files are supported</p>
+      </div>
     </div>
   );
 };
