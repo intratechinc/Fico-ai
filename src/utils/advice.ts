@@ -1,11 +1,12 @@
 import type { Pass2Normalization, Pass3Advice } from '../types';
+import { formatNumber } from './format';
 
 export function generateAdviceFromPass2(pass2: Pass2Normalization): Pass3Advice {
   const baseline = pass2.baselineScoreEstimate;
   const breakdown = {
     paymentHistory: `Status: ${pass2.paymentHistory.status}. Late payments: ${pass2.paymentHistory.latePaymentsTotal ?? 0}.`,
-    amountsOwed: `Utilization: ${pass2.amountsOwed.overallUtilization}%. Status: ${pass2.amountsOwed.status}.`,
-    lengthOfHistory: `Oldest: ${pass2.lengthOfHistory.oldestAccountAgeYears}y, Avg: ${pass2.lengthOfHistory.averageAccountAgeYears}y. Status: ${pass2.lengthOfHistory.status}.`,
+    amountsOwed: `Utilization: ${formatNumber(pass2.amountsOwed.overallUtilization)}%. Status: ${pass2.amountsOwed.status}.`,
+    lengthOfHistory: `Oldest: ${formatNumber(pass2.lengthOfHistory.oldestAccountAgeYears)}y, Avg: ${formatNumber(pass2.lengthOfHistory.averageAccountAgeYears)}y. Status: ${pass2.lengthOfHistory.status}.`,
     newCredit: `Recent inquiries (12mo): ${pass2.newCredit.recentInquiries12mo}. Status: ${pass2.newCredit.status}.`,
     creditMix: `Types: ${Array.isArray(pass2.creditMix.accountTypes) ? pass2.creditMix.accountTypes.join(', ') : ''}. Status: ${pass2.creditMix.status}.`,
   };

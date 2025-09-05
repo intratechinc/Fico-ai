@@ -5,31 +5,14 @@ const BASE_SCORE = 300;
 const MAX_SCORE = 850;
 const SCORE_RANGE = MAX_SCORE - BASE_SCORE;
 
-// Weights for each FICO category (used to derive baseline 300-850)
+// Weights for each FICO category based on the provided reference
 const WEIGHTS = {
-  paymentHistory: 35,
-  amountsOwed: 30,
-  lengthOfCreditHistory: 15,
-  creditMix: 10,
-  newCredit: 10,
+  paymentHistory: 0.35,
+  amountsOwed: 0.30,
+  lengthOfCreditHistory: 0.15,
+  creditMix: 0.10,
+  newCredit: 0.10,
 };
-
-function statusWeight(status: 'Excellent' | 'Good' | 'Fair' | 'Poor'): number {
-  switch (status) {
-    case 'Excellent': return 1;
-    case 'Good': return 0.75;
-    case 'Fair': return 0.5;
-    case 'Poor': return 0.25;
-    default: return 0.5;
-  }
-}
-
-function getStatusFromPercent(value: number, thresholds: number[]): 'Excellent' | 'Good' | 'Fair' | 'Poor' {
-  if (value <= thresholds[0]) return 'Excellent';
-  if (value <= thresholds[1]) return 'Good';
-  if (value <= thresholds[2]) return 'Fair';
-  return 'Poor';
-}
 
 /**
  * Calculates the score for the Payment History category.
@@ -146,51 +129,26 @@ function calculateNewCreditScore(data: CreditData): number {
  */
 export const calculateFicoScore = (creditData: CreditData | null): number => {
   if (!creditData || !creditData.accounts || creditData.accounts.length === 0) {
-    return BASE_SCORE;
+    return BASE_SCORE; // Return base score for insufficient data
   }
 
-  // Payment History status from total late payments
-  const totalLates = creditData.late_payments || 0;
-  const paymentHistoryStatus: 'Excellent' | 'Good' | 'Fair' | 'Poor' =
-    totalLates === 0 ? 'Excellent' : totalLates <= 2 ? 'Good' : totalLates <= 5 ? 'Fair' : 'Poor';
+  // Calculate the raw score contribution from each category
+  const paymentHistoryComponent = calculatePaymentHistoryScore(creditData) * WEIGHTS.paymentHistory;
+  const amountsOwedComponent = calculateAmountsOwedScore(creditData) * WEIGHTS.amountsOwed;
+  const lengthOfCreditHistoryComponent = calculateLengthOfCreditHistoryScore(creditData) * WEIGHTS.lengthOfCreditHistory;
+  const creditMixComponent = calculateCreditMixScore(creditData) * WEIGHTS.creditMix;
+  const newCreditComponent = calculateNewCreditScore(creditData) * WEIGHTS.newCredit;
 
-  // Amounts Owed via overall utilization
-  const totals = creditData.accounts.reduce(
-    (acc, a) => {
-      acc.limit += a.limit || 0;
-      acc.balance += a.balance || 0;
-      return acc;
-    },
-    { balance: 0, limit: 0 }
-  );
-  const utilPct = totals.limit > 0 ? (totals.balance / totals.limit) * 100 : 0;
-  const amountsOwedStatus = getStatusFromPercent(utilPct, [10, 30, 50]);
+  // Sum the weighted scores to get a final value between 0 and 1
+  const totalWeightedScore =
+    paymentHistoryComponent +
+    amountsOwedComponent +
+    lengthOfCreditHistoryComponent +
+    creditMixComponent +
+    newCreditComponent;
 
-  // Length of Credit History via average age (years)
-  const avgYears = (creditData.average_account_age_months || 0) / 12;
-  const lengthStatus: 'Excellent' | 'Good' | 'Fair' | 'Poor' =
-    avgYears > 10 ? 'Excellent' : avgYears > 5 ? 'Good' : avgYears > 2 ? 'Fair' : 'Poor';
+  // Scale the result to the FICO score range (300-850)
+  const finalScore = BASE_SCORE + Math.round(totalWeightedScore * SCORE_RANGE);
 
-  // New Credit via inquiries (12-24 months treated similarly)
-  const inq = creditData.inquiries || 0;
-  const newCreditStatus: 'Excellent' | 'Good' | 'Fair' | 'Poor' =
-    inq === 0 ? 'Excellent' : inq <= 2 ? 'Good' : inq <= 4 ? 'Fair' : 'Poor';
-
-  // Credit Mix diversity
-  const mix = creditData.credit_mix || { revolving: 0, installment: 0, mortgage: 0 };
-  const diversity = (mix.revolving > 0 ? 1 : 0) + (mix.installment > 0 ? 1 : 0) + (mix.mortgage > 0 ? 1 : 0);
-  const creditMixStatus: 'Excellent' | 'Good' | 'Fair' | 'Poor' =
-    diversity >= 3 ? 'Excellent' : diversity === 2 ? 'Good' : diversity === 1 ? 'Fair' : 'Poor';
-
-  // Map statuses through category weights to a 0..100 normalized score
-  const normalized =
-    WEIGHTS.paymentHistory * statusWeight(paymentHistoryStatus) +
-    WEIGHTS.amountsOwed * statusWeight(amountsOwedStatus) +
-    WEIGHTS.lengthOfCreditHistory * statusWeight(lengthStatus) +
-    WEIGHTS.creditMix * statusWeight(creditMixStatus) +
-    WEIGHTS.newCredit * statusWeight(newCreditStatus);
-
-  // Scale 0..100 -> 300..850
-  const baseline = Math.round((normalized / 100) * SCORE_RANGE + BASE_SCORE);
-  return Math.max(BASE_SCORE, Math.min(MAX_SCORE, baseline));
+  return Math.max(BASE_SCORE, Math.min(MAX_SCORE, finalScore));
 };

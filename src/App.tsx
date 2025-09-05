@@ -1,11 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { GoalCard } from './components/GoalCard';
-import { Sparkle, UploadCloud } from './components/Icons';
+import { Sparkle, UploadCloud, Hamburger } from './components/Icons';
 import Simulator from './components/pages/Simulator';
 import type { AnalyzeResponse, AppState, CreditData, Goal, Pass2Normalization, Pass3Advice } from './types';
 import { normalizeFromCreditData } from './utils/normalizer';
 import { generateAdviceFromPass2 } from './utils/advice';
+import { formatNumber, formatUSD } from './utils/format';
+import { calculateFicoScore } from '../utils/ficoScoreCalculator';
+import ResultsModal from './components/ResultsModal';
+import SidebarNav from './components/SidebarNav';
+import InfoModal from './components/InfoModal';
 
 const SECTION = 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8';
 
@@ -18,8 +23,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>(() => (supportsFileInput() ? 'upload' : 'paste'));
   const [profile, setProfile] = useState<Pass2Normalization | null>(null);
   const [advice, setAdvice] = useState<Pass3Advice | null>(null);
+  const [resultsOpen, setResultsOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
 
-  const initialScore = useMemo(() => (profile ? profile.baselineScoreEstimate : 620), [profile]);
+  const initialScore = useMemo(() => (creditData ? calculateFicoScore(creditData) : 620), [creditData]);
 
   async function analyze(content: string, mimeType: string) {
     setError(null);
@@ -45,6 +53,7 @@ export default function App() {
       setProfile(p2);
       setAdvice(generateAdviceFromPass2(p2));
       setAppState('results');
+      setResultsOpen(true);
     } catch (err: any) {
       setError(err.message || 'Unexpected error');
       setAppState('error');
@@ -55,17 +64,16 @@ export default function App() {
     <div className="min-h-screen">
       <header className="border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className={`${SECTION} py-5 flex items-center gap-3`}>
+          <button className="p-2 rounded hover:bg-neutral-100" onClick={() => setSidebarOpen(true)} aria-label="Open menu"><Hamburger className="h-6 w-6" /></button>
           <Sparkle className="h-7 w-7" />
-          <h1 className="text-xl font-semibold tracking-tight">
-            AI FICO — Credit Report Analyzer
-          </h1>
+          <h1 className="text-xl font-semibold tracking-tight">AI FICO — Credit Report Analyzer</h1>
         </div>
       </header>
 
       <main className={`${SECTION} py-8 space-y-10`}>
         {/* Input */}
         <section className="space-y-6">
-          <h2 className="text-lg font-medium">Dual Input Methods</h2>
+          <h2 className="text-lg font-medium sr-only">Input</h2>
           <div className="border-b">
             <nav className="flex gap-2" aria-label="Tabs">
               <button
@@ -119,51 +127,56 @@ export default function App() {
           </div>
         )}
 
-        {appState === 'results' && creditData && (
-          <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-medium">Personalized Goals</h2>
-              <div className="text-sm text-neutral-600">
-                Estimated starting FICO: <span className="font-semibold">{initialScore}</span>
-              </div>
-            </div>
-            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {goals.map((g) => (
-                <GoalCard key={g.goal_id} goal={g} onSimulate={() => setSelectedGoal(g)} />
-              ))}
-            </div>
-          </section>
+        {false && creditData && (
+          <section className="space-y-4"></section>
         )}
 
         {appState === 'results' && profile && (
-          <section className="grid md:grid-cols-2 gap-5">
+          <section className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-medium">Report Snapshot</h2>
+              <div className="text-sm text-neutral-600">Score: <span className="font-semibold">{initialScore}</span></div>
+            </div>
+            <div className="grid md:grid-cols-2 gap-5">
             <div className="rounded-2xl border bg-white p-5 shadow-sm">
-              <h3 className="font-semibold mb-3">Report Profile (Pass 2)</h3>
+              <h3 className="font-semibold mb-3">Report Profile</h3>
               <div className="text-sm space-y-2">
                 <div>
                   <span className="font-medium">Baseline score:</span> {profile.baselineScoreEstimate}
                 </div>
                 <div>
-                  <span className="font-medium">Payment History:</span> {profile.paymentHistory.status} · lates {profile.paymentHistory.latePaymentsTotal ?? 0}
+                  <span className="font-medium">Payment history:</span> {profile.paymentHistory.status} · lates {profile.paymentHistory.latePaymentsTotal ?? 0}
                 </div>
                 <div>
-                  <span className="font-medium">Amounts Owed:</span> {profile.amountsOwed.status} · util {profile.amountsOwed.overallUtilization}%
+                  <span className="font-medium">Utilization:</span> {profile.amountsOwed.status} · {formatNumber(profile.amountsOwed.overallUtilization)}%
                 </div>
                 <div>
-                  <span className="font-medium">Length of History:</span> {profile.lengthOfHistory.status} · oldest {profile.lengthOfHistory.oldestAccountAgeYears}y · avg {profile.lengthOfHistory.averageAccountAgeYears}y
+                  <span className="font-medium">Account age:</span> {profile.lengthOfHistory.status} · oldest {formatNumber(profile.lengthOfHistory.oldestAccountAgeYears)}y · avg {formatNumber(profile.lengthOfHistory.averageAccountAgeYears)}y
                 </div>
                 <div>
-                  <span className="font-medium">New Credit:</span> {profile.newCredit.status} · inquiries {profile.newCredit.recentInquiries12mo}
+                  <span className="font-medium">Inquiries:</span> {profile.newCredit.recentInquiries12mo}
                 </div>
                 <div>
-                  <span className="font-medium">Credit Mix:</span> {profile.creditMix.status} · types {(Array.isArray(profile.creditMix.accountTypes) ? profile.creditMix.accountTypes.join(', ') : '')}
+                  <span className="font-medium">Credit types:</span> {(Array.isArray(profile.creditMix.accountTypes) ? profile.creditMix.accountTypes.join(', ') : '')}
+                </div>
+                <div>
+                  <span className="font-medium">Collections:</span> {(creditData?.collections?.length || 0)} account(s){(creditData?.collections?.length || 0) ? ` · total ${formatUSD((creditData?.collections || []).reduce((s, c) => s + (c.amount || 0), 0))}` : ''}
+                </div>
+                <div className="pt-2">
+                  <div className="font-medium mb-1">Totals</div>
+                  <ul className="space-y-1">
+                    <li>Accounts: {creditData?.accounts?.length || 0}</li>
+                    <li>Total credit (limits): {formatUSD((creditData?.accounts || []).reduce((s, a) => s + (a.limit || 0), 0))}</li>
+                    <li>Total balances: {formatUSD((creditData?.accounts || []).reduce((s, a) => s + (a.balance || 0), 0))}</li>
+                    <li>Total collections: {formatUSD((creditData?.collections || []).reduce((s, c) => s + (c.amount || 0), 0))}</li>
+                  </ul>
                 </div>
               </div>
             </div>
 
             {advice && (
               <div className="rounded-2xl border bg-white p-5 shadow-sm">
-                <h3 className="font-semibold mb-3">Advice (Pass 3)</h3>
+                <h3 className="font-semibold mb-3">Advice</h3>
                 <div className="text-sm space-y-2">
                   <div className="text-neutral-700">{advice.currentState.summary}</div>
                   <div className="grid grid-cols-1 gap-2">
@@ -189,6 +202,20 @@ export default function App() {
                 </div>
               </div>
             )}
+            </div>
+
+            {creditData && (
+              <section className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="text-lg font-medium">Personalized Goals</h2>
+                </div>
+                <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  {goals.map((g) => (
+                    <GoalCard key={g.goal_id} goal={g} onSimulate={() => setSelectedGoal(g)} />
+                  ))}
+                </div>
+              </section>
+            )}
           </section>
         )}
       </main>
@@ -196,10 +223,25 @@ export default function App() {
       <Simulator
         open={!!selectedGoal}
         onClose={() => setSelectedGoal(null)}
+        onBackToResults={() => { setSelectedGoal(null); setResultsOpen(true); }}
         initialScore={initialScore}
         creditData={creditData}
         goal={selectedGoal}
+        advice={advice}
       />
+
+      <ResultsModal
+        open={resultsOpen}
+        onClose={() => setResultsOpen(false)}
+        profile={profile}
+        advice={advice}
+        goals={goals}
+        onSelectGoal={(g) => { setResultsOpen(false); setSelectedGoal(g); }}
+        score={initialScore}
+      />
+
+      <SidebarNav open={sidebarOpen} onClose={() => setSidebarOpen(false)} onOpenInfo={() => setInfoOpen(true)} />
+      <InfoModal open={infoOpen} onClose={() => setInfoOpen(false)} />
 
       <footer className="mt-16 py-8 text-center text-xs text-neutral-500">
         Built for production • Tailwind + React • Cursor-safe structure

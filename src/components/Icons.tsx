@@ -24,4 +24,18 @@ export const ChevronRight: React.FC<IconProps> = ({ className, ...rest }) => (
   </svg>
 );
 
+export const Hamburger: React.FC<IconProps> = ({ className, ...rest }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className} {...rest}>
+    <path d="M4 6h16" />
+    <path d="M4 12h16" />
+    <path d="M4 18h16" />
+  </svg>
+);
+
+export const XMark: React.FC<IconProps> = ({ className, ...rest }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className={className} {...rest}>
+    <path d="M6 6l12 12M6 18L18 6" />
+  </svg>
+);
+
 

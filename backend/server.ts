@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 
 // Fix: Let app type be inferred from express() call
 const app = express();
+const analyzeCache: Map<string, string> = new Map();
 const port = process.env.PORT || 8080;
 
 app.use(cors({
@@ -139,6 +140,14 @@ app.post('/api/analyze', async (req: Request, res: Response) => {
         return res.status(400).json({ error: 'Missing content or mimeType in request body' });
     }
 
+    // Deterministic cache by content hash
+    try {
+        const key = `${mimeType}:${Buffer.from(content).toString('base64').slice(0, 256)}`; // simple bounded key
+        if (analyzeCache.has(key)) {
+            return res.json(JSON.parse(analyzeCache.get(key)!));
+        }
+    } catch {}
+
     let reportPart;
     if (mimeType === 'application/pdf' && content.includes(',')) {
         reportPart = {
@@ -159,6 +168,10 @@ app.post('/api/analyze', async (req: Request, res: Response) => {
                 systemInstruction: systemInstruction,
                 responseMimeType: 'application/json',
                 responseSchema: schema,
+                temperature: 0,
+                topP: 0,
+                topK: 1,
+                candidateCount: 1,
             }
         });
 
@@ -168,6 +181,10 @@ app.post('/api/analyze', async (req: Request, res: Response) => {
         }
         
         const result = JSON.parse(jsonText) as GeminiResponse;
+        try {
+            const key = `${mimeType}:${Buffer.from(content).toString('base64').slice(0, 256)}`;
+            analyzeCache.set(key, JSON.stringify(result));
+        } catch {}
         res.json(result);
 
     } catch (error) {

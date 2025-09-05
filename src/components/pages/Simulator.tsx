@@ -1,17 +1,19 @@
 import React, { useMemo, useState } from 'react';
-import type { CreditData, Goal } from '../../types';
+import type { CreditData, Goal, Pass3Advice } from '../../types';
 import { ChevronRight } from '../Icons';
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  onBackToResults?: () => void;
   initialScore: number;
   creditData: CreditData | null;
   goal: Goal | null;
+  advice?: Pass3Advice | null;
 }
 
-export default function Simulator({ open, onClose, initialScore, creditData, goal }: Props) {
+export default function Simulator({ open, onClose, onBackToResults, initialScore, creditData, goal, advice }: Props) {
   const [util, setUtil] = useState<number>(creditData ? utilizationPct(creditData) : 30);
   const [inquiries, setInquiries] = useState<number>(creditData?.inquiries ?? 0);
   const [lates, setLates] = useState<number>(creditData?.late_payments ?? 0);
@@ -41,7 +43,7 @@ export default function Simulator({ open, onClose, initialScore, creditData, goa
         </div>
 
         <div className="p-5 grid gap-5">
-          <div className="grid md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="rounded-xl border p-4">
               <div className="text-sm text-neutral-600 mb-3">Projected FICO</div>
               <div className="h-56">
@@ -57,6 +59,19 @@ export default function Simulator({ open, onClose, initialScore, creditData, goa
             </div>
 
             <div className="rounded-xl border p-4 space-y-4">
+              {advice ? (
+                <div className="rounded-lg border bg-neutral-50 p-3 text-sm">
+                  <div className="font-medium mb-1">Advice Summary</div>
+                  <div className="text-neutral-700 mb-2">{advice.currentState.summary}</div>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>{advice.ficoImpactBreakdown.paymentHistory}</li>
+                    <li>{advice.ficoImpactBreakdown.amountsOwed}</li>
+                    <li>{advice.ficoImpactBreakdown.lengthOfHistory}</li>
+                    <li>{advice.ficoImpactBreakdown.newCredit}</li>
+                    <li>{advice.ficoImpactBreakdown.creditMix}</li>
+                  </ul>
+                </div>
+              ) : null}
               <Control label={`Credit Utilization (${util}%)`}>
                 <input type="range" min={0} max={100} value={util} onChange={(e) => setUtil(Number(e.target.value))} className="w-full" />
               </Control>
@@ -120,7 +135,8 @@ export default function Simulator({ open, onClose, initialScore, creditData, goa
           ) : null}
         </div>
 
-        <div className="px-5 py-4 border-t flex justify-end">
+        <div className="px-5 py-4 border-t flex items-center justify-between">
+          <button className="text-sm text-neutral-600 hover:text-black" onClick={onBackToResults || onClose}>Back to Results</button>
           <button className="inline-flex items-center gap-2 rounded-xl bg-black text-white px-4 py-2" onClick={onClose}>
             Continue <ChevronRight className="h-4 w-4" />
           </button>
